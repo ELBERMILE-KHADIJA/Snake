@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snake POO</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0a0a0a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-family: Arial, sans-serif;
+  color: #00ff88;
+}
+h1 { font-size: 22px; letter-spacing: 4px; margin-bottom: 4px; text-shadow: 0 0 15px #00ff88; }
+.sous { font-size: 10px; color: #333; letter-spacing: 2px; margin-bottom: 14px; }
+.stats { display: flex; gap: 28px; margin-bottom: 12px; font-size: 13px; }
+.stats span { color: #888; }
+#v-score { color: #00ff88; }
+#v-taille { color: #f39c12; }
+#v-meilleur { color: #ff6b9d; }
+canvas { border: 2px solid #1a3a2a; border-radius: 4px; display: block; }
+.btns { display: grid; grid-template-areas: ". up ." "left down right"; gap: 8px; margin-top: 14px; }
+.bd { width: 50px; height: 50px; background: #0d2a1a; border: 1px solid #1a4a2e; color: #00ff88; font-size: 20px; cursor: pointer; border-radius: 8px; }
+.bd:active { background: #1a4a2e; }
+.up { grid-area: up; } .left { grid-area: left; } .down { grid-area: down; } .right { grid-area: right; }
+.hint { margin-top: 10px; font-size: 10px; color: #222; }
+</style>
+</head>
+<body>
+
+<h1>🐍 SNAKE</h1>
+<div class="sous">PROGRAMMATION ORIENTÉE OBJET</div>
+
+<div class="stats">
+  <span>Score : <b id="v-score">0</b></span>
+  <span>Taille : <b id="v-taille">3</b></span>
+  <span>Meilleur : <b id="v-meilleur">0</b></span>
+</div>
+
+<canvas id="canvas" width="400" height="400"></canvas>
+
+<div class="btns">
+  <button class="bd up"    onclick="jeu.changerDir(0,-1)">&#9650;</button>
+  <button class="bd left"  onclick="jeu.changerDir(-1,0)">&#9664;</button>
+  <button class="bd down"  onclick="jeu.changerDir(0,1)">&#9660;</button>
+  <button class="bd right" onclick="jeu.changerDir(1,0)">&#9654;</button>
+</div>
+<div class="hint">Clavier : fleches ou Z Q S D</div>
+
+<script>
+
+class Point {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+  }
+  egale(autre) {
+    return this.x === autre.x && this.y === autre.y;
+  }
+  clone() {
+    return new Point(this.x, this.y);
+  }
+}
+
+class Nourriture {
+  constructor(cols, rows) {
+    this.cols = cols;
+    this.rows = rows;
+    this.position = new Point(15, 10);
+  }
+  generer(corps) {
+    var p;
+    do {
+      p = new Point(
+        Math.floor(Math.random() * this.cols),
+        Math.floor(Math.random() * this.rows)
+      );
+    } while (corps.some(function(c) { return c.egale(p); }));
+    this.position = p;
+  }
+  dessiner(ctx, t) {
+    var cx = this.position.x * t + t / 2;
+    var cy = this.position.y * t + t / 2;
+    ctx.fillStyle = "#e74c3c";
+    ctx.beginPath();
+    ctx.arc(cx, cy, t / 2 - 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#27ae60";
+    ctx.fillRect(cx + 1, cy - t / 2 + 1, 3, 6);
+  }
+}
+
+class Serpent {
+  constructor(cols, rows) {
+    this.cols = cols;
+    this.rows = rows;
+    this.corps = [
+      new Point(6, 5),
+      new Point(5, 5),
+      new Point(4, 5)
+    ];
+    this.dir = new Point(1, 0);
+    this.prochDir = new Point(1, 0);
+    this.vivant = true;
+    this.score = 0;
+  }
+  changerDir(dx, dy) {
+    if (dx !== 0 && dx === -this.dir.x) return;
+    if (dy !== 0 && dy === -this.dir.y) return;
+    this.prochDir = new Point(dx, dy);
+  }
+  tete() {
+    return this.corps[0];
+  }
+  longueur() {
+    return this.corps.length;
+  }
+  avancer(nourr) {
+    this.dir = this.prochDir.clone();
+    var t = new Point(this.tete().x + this.dir.x, this.tete().y + this.dir.y);
+    if (t.x < 0 || t.x >= this.cols || t.y < 0 || t.y >= this.rows) {
+      this.vivant = false;
+      return;
+    }
+    for (var i = 0; i < this.corps.length; i++) {
+      if (this.corps[i].egale(t)) {
+        this.vivant = false;
+        return;
+      }
+    }
+    this.corps.unshift(t);
+    if (t.egale(nourr.position)) {
+      this.score += 10;
+      nourr.generer(this.corps);
+    } else {
+      this.corps.pop();
+    }
+  }
+  dessiner(ctx, t) {
+    for (var i = 0; i < this.corps.length; i++) {
+      var s = this.corps[i];
+      var x = s.x * t + 1;
+      var y = s.y * t + 1;
+      var w = t - 2;
+      if (i === 0) {
+        ctx.fillStyle = "#00ff88";
+        ctx.shadowColor = "#00ff88";
+        ctx.shadowBlur = 10;
+      } else {
+        var a = Math.max(0.25, 1 - i / this.corps.length);
+        ctx.fillStyle = "rgba(0,200,100," + a + ")";
+        ctx.shadowBlur = 0;
+      }
+      ctx.fillRect(x, y, w, w);
+      ctx.shadowBlur = 0;
+    }
+  }
+}
+
+class Jeu {
+  constructor() {
+    this.canvas = document.getElementById("canvas");
+    this.ctx = this.canvas.getContext("2d");
+    this.COLS = 20;
+    this.ROWS = 20;
+    this.T = this.canvas.width / this.COLS;
+    this.meilleur = 0;
+    this.intervalle = null;
+    this.attendre = true;
+    this.serpent = new Serpent(this.COLS, this.ROWS);
+    this.nourr = new Nourriture(this.COLS, this.ROWS);
+    this.nourr.generer(this.serpent.corps);
+    this.dessiner();
+    this.afficherMessage("Appuie pour commencer", "#00ff88");
+  }
+
+  changerDir(dx, dy) {
+    if (this.attendre) {
+      this.attendre = false;
+      this.demarrer();
+      return;
+    }
+    this.serpent.changerDir(dx, dy);
+  }
+
+  demarrer() {
+    if (this.intervalle) clearInterval(this.intervalle);
+    var self = this;
+    this.intervalle = setInterval(function() { self.tick(); }, 150);
+  }
+
+  tick() {
+    this.serpent.avancer(this.nourr);
+    this.dessiner();
+    this.majStats();
+    if (!this.serpent.vivant) {
+      clearInterval(this.intervalle);
+      if (this.serpent.score > this.meilleur) this.meilleur = this.serpent.score;
+      document.getElementById("v-meilleur").textContent = this.meilleur;
+      var self = this;
+      setTimeout(function() { self.reset(); }, 600);
+    }
+  }
+
+  reset() {
+    this.serpent = new Serpent(this.COLS, this.ROWS);
+    this.nourr = new Nourriture(this.COLS, this.ROWS);
+    this.nourr.generer(this.serpent.corps);
+    this.dessiner();
+    this.majStats();
+    this.afficherMessage("GAME OVER - Appuie pour rejouer", "#e74c3c");
+    this.attendre = true;
+  }
+
+  dessinerFond() {
+    this.ctx.fillStyle = "#050f08";
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.strokeStyle = "#0d1f14";
+    this.ctx.lineWidth = 0.5;
+    for (var i = 0; i <= this.COLS; i++) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(i * this.T, 0);
+      this.ctx.lineTo(i * this.T, this.canvas.height);
+      this.ctx.stroke();
+    }
+    for (var j = 0; j <= this.ROWS; j++) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(0, j * this.T);
+      this.ctx.lineTo(this.canvas.width, j * this.T);
+      this.ctx.stroke();
+    }
+  }
+
+  dessiner() {
+    this.dessinerFond();
+    this.nourr.dessiner(this.ctx, this.T);
+    this.serpent.dessiner(this.ctx, this.T);
+  }
+
+  afficherMessage(texte, couleur) {
+    var ctx = this.ctx;
+    var cw = this.canvas.width;
+    var ch = this.canvas.height;
+    ctx.fillStyle = "rgba(5,15,8,0.88)";
+    ctx.fillRect(40, ch/2 - 50, cw - 80, 100);
+    ctx.strokeStyle = couleur;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(40, ch/2 - 50, cw - 80, 100);
+    ctx.fillStyle = couleur;
+    ctx.font = "bold 13px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(texte, cw / 2, ch / 2 + 6);
+    ctx.textAlign = "left";
+  }
+
+  majStats() {
+    document.getElementById("v-score").textContent = this.serpent.score;
+    document.getElementById("v-taille").textContent = this.serpent.longueur();
+    document.getElementById("v-meilleur").textContent = this.meilleur;
+  }
+}
+
+
+document.addEventListener("keydown", function(e) {
+  var dirs = {
+    ArrowUp: [0,-1], ArrowDown: [0,1],
+    ArrowLeft: [-1,0], ArrowRight: [1,0],
+    z:[0,-1], Z:[0,-1],
+    s:[0,1],  S:[0,1],
+    q:[-1,0], Q:[-1,0],
+    d:[1,0],  D:[1,0]
+  };
+  if (dirs[e.key]) {
+    e.preventDefault();
+    jeu.changerDir(dirs[e.key][0], dirs[e.key][1]);
+  }
+});
+var jeu = new Jeu();
+
+</script>
+
+</body>
+</html>
